@@ -1014,10 +1014,33 @@ main { max-width: 860px; margin: 0 auto; padding: 16px 14px 60px; }
     return num * 2 + 2;
   }
 
+  var imgHostGood = '';
+
   function imageUrl(photoId, filename, idx) {
     var hosts = state.cfg.imageHosts;
-    var host = hosts[idx % hosts.length];
+    var host = imgHostGood || hosts[idx % hosts.length];
     return 'https://' + host + '/media/photos/' + photoId + '/' + filename;
+  }
+
+  /* 同一张图在其他图片 CDN 上的候选地址：某个域名挂了就自动换下一个 */
+  function imageAlternates(url) {
+    var m = String(url).match(/^https?:\/\/[^\/]+(\/media\/photos\/.*)$/);
+    if (!m) return [url];
+    var hosts = state.cfg.imageHosts.slice();
+    if (imgHostGood) {
+      hosts = [imgHostGood].concat(hosts.filter(function (h) { return h !== imgHostGood; }));
+    }
+    var out = [];
+    hosts.forEach(function (h) {
+      var u = 'https://' + h + m[1];
+      if (out.indexOf(u) === -1) out.push(u);
+    });
+    return out.length ? out : [url];
+  }
+
+  function markImageHost(url) {
+    var m = String(url).match(/^https?:\/\/([^\/]+)\//);
+    if (m && state.cfg.imageHosts.indexOf(m[1]) !== -1) imgHostGood = m[1];
   }
 
   function normalizeAlbum(id, d) {
@@ -1133,6 +1156,8 @@ main { max-width: 860px; margin: 0 auto; padding: 16px 14px 60px; }
     getState: function () { return state; },
     decryptJMData: decryptJMData,
     sliceCount: sliceCount,
+    imageAlternates: imageAlternates,
+    markImageHost: markImageHost,
     DEFAULT_SCRAMBLE: SCRAMBLE_DEFAULT
   };
 })(window);
@@ -1590,21 +1615,29 @@ main { max-width: 860px; margin: 0 auto; padding: 16px 14px 60px; }
   function getBitmap(url) {
     var hit = S.bitmaps.get(url);
     if (hit) { hit.t = Date.now(); return Promise.resolve(hit.bmp); }
-    return fetch(url, { mode: 'cors', cache: 'force-cache', referrerPolicy: 'no-referrer' }).then(function (resp) {
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      return resp.blob();
-    }).then(blobToBitmap).then(function (bmp) {
-      S.bitmaps.set(url, { bmp: bmp, t: Date.now() });
-      if (S.bitmaps.size > 12) {
-        var oldest = null;
-        S.bitmaps.forEach(function (v, k) { if (!oldest || v.t < oldest.v.t) oldest = { k: k, v: v }; });
-        if (oldest) {
-          try { if (oldest.v.bmp && oldest.v.bmp.close) oldest.v.bmp.close(); } catch (e) { /* noop */ }
-          S.bitmaps.delete(oldest.k);
+    var candidates = JMApi.imageAlternates ? JMApi.imageAlternates(url) : [url];
+    function tryNext(i) {
+      return fetch(candidates[i], { mode: 'cors', cache: 'force-cache', referrerPolicy: 'no-referrer' }).then(function (resp) {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.blob();
+      }).then(blobToBitmap).then(function (bmp) {
+        if (JMApi.markImageHost) JMApi.markImageHost(candidates[i]);
+        S.bitmaps.set(url, { bmp: bmp, t: Date.now() });
+        if (S.bitmaps.size > 12) {
+          var oldest = null;
+          S.bitmaps.forEach(function (v, k) { if (!oldest || v.t < oldest.v.t) oldest = { k: k, v: v }; });
+          if (oldest) {
+            try { if (oldest.v.bmp && oldest.v.bmp.close) oldest.v.bmp.close(); } catch (e) { /* noop */ }
+            S.bitmaps.delete(oldest.k);
+          }
         }
-      }
-      return bmp;
-    });
+        return bmp;
+      }).catch(function (e) {
+        if (i + 1 < candidates.length) return tryNext(i + 1);
+        throw e;
+      });
+    }
+    return tryNext(0);
   }
 
   function ensureDrawn(slot) {
