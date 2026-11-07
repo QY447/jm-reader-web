@@ -1,0 +1,1918 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>JM 阅读器 · 网页版</title>
+<link rel="icon" href="data:,">
+<meta name="theme-color" content="#12161c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="JM 阅读器">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+:root {
+  --bg: #121417; --bg2: #1b1f24; --card: #20262d; --line: #2c343d;
+  --fg: #e8ecf1; --dim: #93a1b0; --acc: #e8546a; --acc2: #4f8cff; --ok: #38b26a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: 15px; line-height: 1.55;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; cursor: pointer; }
+input, select, textarea { font: inherit; }
+
+header {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--bg2); border-bottom: 1px solid var(--line);
+  padding: 10px 14px;
+  display: flex; gap: 10px; align-items: center;
+}
+header h1 { font-size: 17px; margin: 0 8px 0 0; white-space: nowrap; color: var(--acc); }
+#searchForm { flex: 1; display: flex; gap: 8px; min-width: 0; }
+#albumInput {
+  flex: 1; min-width: 0; background: var(--card); border: 1px solid var(--line);
+  color: var(--fg); border-radius: 10px; padding: 9px 12px; outline: none;
+}
+#albumInput:focus { border-color: var(--acc2); }
+.btn {
+  background: var(--card); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 14px;
+}
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
+.btn.ghost { background: transparent; }
+.btn:disabled { opacity: .45; cursor: default; }
+
+main { max-width: 860px; margin: 0 auto; padding: 16px 14px 60px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+.dim { color: var(--dim); }
+.hint-box { font-size: 13.5px; }
+.hint-box b { color: var(--acc2); }
+.hint-box.ok { border-color: #2c5740; }
+.hint-box.warn { border-color: #6b5a2c; }
+.hint-box.bad { border-color: #7a323c; }
+
+#historyBox .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 999px;
+  padding: 6px 12px; max-width: 100%;
+}
+.chip .t { max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip .x { color: var(--dim); border: 0; background: none; padding: 0 2px; }
+
+#detail .top { display: flex; gap: 14px; }
+#detail .cover {
+  width: 140px; min-height: 190px; flex: none; border-radius: 10px; overflow: hidden;
+  background: var(--bg2); display: flex; align-items: center; justify-content: center;
+  color: var(--dim); font-size: 13px;
+}
+#detail .cover img { width: 100%; display: block; }
+#detail .cover.has-img { min-height: 0; background: transparent; }
+#detail h2 { margin: 0 0 6px; font-size: 18px; }
+#detail .meta { font-size: 13.5px; color: var(--dim); margin-bottom: 8px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.tag { background: var(--bg2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 12.5px; color: var(--dim); }
+#detail .desc { font-size: 13.5px; color: var(--dim); white-space: pre-wrap; max-height: 120px; overflow: auto; }
+.chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 12px; }
+.chapters .btn { text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chapters .btn.cur { border-color: var(--acc); color: var(--acc); }
+.errbox { border: 1px solid #7a323c; background: #2a1a1d; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.errbox .hint { color: var(--dim); font-size: 13.5px; margin-top: 6px; }
+
+#reader {
+  position: fixed; inset: 0; z-index: 50; background: var(--bg);
+  display: flex; flex-direction: column;
+}
+#reader .topbar {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg2); border-bottom: 1px solid var(--line);
+  padding: 8px 10px; z-index: 5;
+}
+#rTitle { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
+#rPage { font-size: 13px; color: var(--dim); white-space: nowrap; }
+#pages { flex: 1; overflow-y: auto; overscroll-behavior: contain; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+.pageSlot { margin: 0 auto 10px; max-width: 860px; position: relative; }
+.pageSlot canvas { display: block; width: 100%; height: auto; background: var(--bg2); border-radius: 6px; }
+.pageSlot .pageImg { display: block; width: 100%; height: auto; background: var(--bg2); border-radius: 6px; }
+.pageSlot .ph {
+  min-height: 62vh; display: flex; flex-direction: column; gap: 10px;
+  align-items: center; justify-content: center; color: var(--dim); font-size: 14px;
+}
+.pageSlot .num { position: absolute; right: 10px; bottom: 8px; background: rgba(0,0,0,.55); border-radius: 6px; padding: 1px 8px; font-size: 12px; color: #fff; }
+.spinner {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 3px solid var(--line); border-top-color: var(--acc);
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#reader .botbar {
+  display: flex; gap: 8px; align-items: center; justify-content: center;
+  background: var(--bg2); border-top: 1px solid var(--line); padding: 8px 10px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+}
+#chSel { max-width: 55vw; background: var(--card); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; }
+#jumpBox { width: 74px; background: var(--card); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; text-align: center; }
+
+.modal {
+  position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center; padding: 18px;
+}
+.modal .panel {
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 16px;
+  width: 100%; max-width: 520px; max-height: 86vh; overflow: auto; padding: 18px;
+}
+.modal h3 { margin: 0 0 12px; font-size: 16px; }
+.modal label { display: block; font-size: 13.5px; color: var(--dim); margin: 12px 0 4px; }
+.modal input[type=text], .modal input[type=number], .modal textarea {
+  width: 100%; background: var(--card); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; outline: none;
+}
+.modal textarea { min-height: 84px; resize: vertical; font-size: 13px; }
+.modal .checkrow { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13.5px; color: var(--dim); }
+.modal .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+.modal .steps { margin-top: 12px; font-size: 13px; color: var(--dim); white-space: pre-wrap; }
+.modal .mini { font-size: 12.5px; color: var(--dim); margin-top: 6px; }
+
+#toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+  background: #2b323a; color: var(--fg); border: 1px solid var(--line);
+  padding: 10px 16px; border-radius: 12px; font-size: 14px; max-width: 88vw;
+  z-index: 99; display: none; box-shadow: 0 6px 24px rgba(0,0,0,.4);
+}
+#toast.err { border-color: #7a323c; }
+[hidden] { display: none !important; }
+@media (max-width: 620px) {
+  header { flex-wrap: wrap; }
+  header h1 { font-size: 15px; }
+  #detail .top { flex-direction: column; }
+  #detail .cover { width: 100%; min-height: 0; }
+  #detail .cover img { max-height: 46vh; object-fit: contain; margin: 0 auto; }
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>JM 阅读器</h1>
+  <form id="searchForm">
+    <input id="albumInput" inputmode="numeric" autocomplete="off" placeholder="输入作品号，或粘贴作品/章节链接">
+    <button class="btn primary" type="submit">打开</button>
+  </form>
+  <button class="btn ghost" id="settingsBtn" title="设置">⚙</button>
+</header>
+
+<main id="home">
+  <div class="card hint-box" id="statusBox">正在检测线路…</div>
+  <div class="card" id="historyBox">
+    <div class="dim" style="font-size:13.5px; margin-bottom:8px;">最近阅读（只保存在本机浏览器）</div>
+    <div class="chips" id="historyChips"></div>
+  </div>
+  <div class="card hint-box">
+    <b>使用提示</b><br>
+    · 输入作品号（如 <code>422466</code>）或粘贴作品页链接，即可打开阅读器。<br>
+    · 图片在浏览器内自动还原乱序，不经过任何服务器，也不会保存到磁盘。<br>
+    · 打不开时点右上角 ⚙ →「测试连接」，会自动从禁漫域名服务器拉取最新线路。
+  </div>
+</main>
+
+<section id="detail" hidden>
+  <main>
+    <div id="detailErr"></div>
+    <div class="card">
+      <div class="top">
+        <div class="cover" id="coverBox">封面加载中…</div>
+        <div style="min-width:0; flex:1;">
+          <h2 id="dTitle">加载中…</h2>
+          <div class="meta" id="dMeta"></div>
+          <div class="tags" id="dTags"></div>
+          <div class="desc" id="dDesc"></div>
+          <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn primary" id="startBtn" disabled>开始阅读</button>
+            <button class="btn" id="backBtn">返回</button>
+          </div>
+        </div>
+      </div>
+      <div id="chapterWrap" hidden>
+        <div class="dim" style="font-size:13.5px; margin:14px 0 6px;">章节</div>
+        <div class="chapters" id="chapters"></div>
+      </div>
+    </div>
+  </main>
+</section>
+
+<div id="reader" hidden>
+  <div class="topbar">
+    <button class="btn ghost" id="rBack" title="返回">←</button>
+    <div id="rTitle"></div>
+    <span id="rPage"></span>
+  </div>
+  <div id="pages"></div>
+  <div class="botbar" id="chBar" hidden>
+    <button class="btn" id="chPrev">上一话</button>
+    <select id="chSel"></select>
+    <button class="btn" id="chNext">下一话</button>
+    <input id="jumpBox" inputmode="numeric" placeholder="页码">
+  </div>
+</div>
+
+<div class="modal" id="settingsModal" hidden>
+  <div class="panel">
+    <h3>设置</h3>
+    <label>API 线路域名（每行一个；「测试连接」会自动刷新域名列表）</label>
+    <textarea id="setApi" spellcheck="false" autocapitalize="off"></textarea>
+    <label>图片 CDN 域名（每行一个；按顺序轮流使用）</label>
+    <textarea id="setImage" spellcheck="false" autocapitalize="off"></textarea>
+    <label>乱序阈值 scramble_id（默认 220980，一般不用改）</label>
+    <input type="number" id="setScramble" inputmode="numeric" value="220980">
+    <div class="checkrow">
+      <input type="checkbox" id="setNoScr">
+      <span>禁用图片乱序还原（仅调试用，画面错乱时可尝试）</span>
+    </div>
+    <div class="checkrow">
+      <input type="checkbox" id="setNoRefresh">
+      <span>不自动更新线路（调试用）</span>
+    </div>
+    <div class="mini">所有设置只保存在本机浏览器；换设备需要重新填写。</div>
+    <div class="steps" id="testSteps" hidden></div>
+    <div class="row">
+      <button class="btn" id="testBtn">测试连接</button>
+      <button class="btn" id="clearCacheBtn">清缓存</button>
+      <button class="btn" id="resetBtn">恢复默认</button>
+      <button class="btn" id="cancelBtn">取消</button>
+      <button class="btn primary" id="saveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="ageGate" hidden>
+  <div class="panel">
+    <h3>成人内容提示（18+）</h3>
+    <p class="dim" style="font-size:14px;">
+      本页面仅供<b>已满 18 周岁</b>的用户个人浏览使用，不提供任何内容下载与分发功能。<br><br>
+      请遵守你所在地区的法律法规；相关作品的版权归原权利方所有。<br>
+      内容全部来自第三方接口，本页面不存储、不修改任何作品。
+    </p>
+    <div class="row">
+      <button class="btn" id="ageNo">退出</button>
+      <button class="btn primary" id="ageYes">我已满 18 岁，继续</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/*
+ * 纯 JS MD5（浏览器端零依赖）。
+ * 用途：禁漫 App 协议的 token = md5(ts + secret)，以及每张图的切片数 = md5(作品号+文件名)。
+ * WebCrypto 不提供 MD5，所以这里内置一份实现。
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.JM_MD5 = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  function utf8Bytes(str) {
+    str = String(str);
+    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(str);
+    var out = [], i, c, c2, cp;
+    for (i = 0; i < str.length; i++) {
+      c = str.charCodeAt(i);
+      if (c < 0x80) out.push(c);
+      else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+      else if (c < 0xd800 || c >= 0xe000) out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+      else {
+        c2 = str.charCodeAt(++i);
+        cp = 0x10000 + (((c & 0x3ff) << 10) | (c2 & 0x3ff));
+        out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
+      }
+    }
+    return new Uint8Array(out);
+  }
+
+  function safeAdd(x, y) {
+    var lsw = (x & 0xffff) + (y & 0xffff);
+    var msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+    return (msw << 16) | (lsw & 0xffff);
+  }
+
+  function rotl(num, cnt) {
+    return (num << cnt) | (num >>> (32 - cnt));
+  }
+
+  function cmn(q, a, b, x, s, t) {
+    return safeAdd(rotl(safeAdd(safeAdd(a, q), safeAdd(x, t)), s), b);
+  }
+  function ff(a, b, c, d, x, s, t) { return cmn((b & c) | (~b & d), a, b, x, s, t); }
+  function gg(a, b, c, d, x, s, t) { return cmn((b & d) | (c & ~d), a, b, x, s, t); }
+  function hh(a, b, c, d, x, s, t) { return cmn(b ^ c ^ d, a, b, x, s, t); }
+  function ii(a, b, c, d, x, s, t) { return cmn(c ^ (b | ~d), a, b, x, s, t); }
+
+  function binlMD5(x, len) {
+    x[len >> 5] |= 0x80 << (len % 32);
+    x[(((len + 64) >>> 9) << 4) + 14] = len;
+
+    var i, olda, oldb, oldc, oldd,
+      a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
+
+    for (i = 0; i < x.length; i += 16) {
+      olda = a; oldb = b; oldc = c; oldd = d;
+
+      a = ff(a, b, c, d, x[i], 7, -680876936);
+      d = ff(d, a, b, c, x[i + 1], 12, -389564586);
+      c = ff(c, d, a, b, x[i + 2], 17, 606105819);
+      b = ff(b, c, d, a, x[i + 3], 22, -1044525330);
+      a = ff(a, b, c, d, x[i + 4], 7, -176418897);
+      d = ff(d, a, b, c, x[i + 5], 12, 1200080426);
+      c = ff(c, d, a, b, x[i + 6], 17, -1473231341);
+      b = ff(b, c, d, a, x[i + 7], 22, -45705983);
+      a = ff(a, b, c, d, x[i + 8], 7, 1770035416);
+      d = ff(d, a, b, c, x[i + 9], 12, -1958414417);
+      c = ff(c, d, a, b, x[i + 10], 17, -42063);
+      b = ff(b, c, d, a, x[i + 11], 22, -1990404162);
+      a = ff(a, b, c, d, x[i + 12], 7, 1804603682);
+      d = ff(d, a, b, c, x[i + 13], 12, -40341101);
+      c = ff(c, d, a, b, x[i + 14], 17, -1502002290);
+      b = ff(b, c, d, a, x[i + 15], 22, 1236535329);
+
+      a = gg(a, b, c, d, x[i + 1], 5, -165796510);
+      d = gg(d, a, b, c, x[i + 6], 9, -1069501632);
+      c = gg(c, d, a, b, x[i + 11], 14, 643717713);
+      b = gg(b, c, d, a, x[i], 20, -373897302);
+      a = gg(a, b, c, d, x[i + 5], 5, -701558691);
+      d = gg(d, a, b, c, x[i + 10], 9, 38016083);
+      c = gg(c, d, a, b, x[i + 15], 14, -660478335);
+      b = gg(b, c, d, a, x[i + 4], 20, -405537848);
+      a = gg(a, b, c, d, x[i + 9], 5, 568446438);
+      d = gg(d, a, b, c, x[i + 14], 9, -1019803690);
+      c = gg(c, d, a, b, x[i + 3], 14, -187363961);
+      b = gg(b, c, d, a, x[i + 8], 20, 1163531501);
+      a = gg(a, b, c, d, x[i + 13], 5, -1444681467);
+      d = gg(d, a, b, c, x[i + 2], 9, -51403784);
+      c = gg(c, d, a, b, x[i + 7], 14, 1735328473);
+      b = gg(b, c, d, a, x[i + 12], 20, -1926607734);
+
+      a = hh(a, b, c, d, x[i + 5], 4, -378558);
+      d = hh(d, a, b, c, x[i + 8], 11, -2022574463);
+      c = hh(c, d, a, b, x[i + 11], 16, 1839030562);
+      b = hh(b, c, d, a, x[i + 14], 23, -35309556);
+      a = hh(a, b, c, d, x[i + 1], 4, -1530992060);
+      d = hh(d, a, b, c, x[i + 4], 11, 1272893353);
+      c = hh(c, d, a, b, x[i + 7], 16, -155497632);
+      b = hh(b, c, d, a, x[i + 10], 23, -1094730640);
+      a = hh(a, b, c, d, x[i + 13], 4, 681279174);
+      d = hh(d, a, b, c, x[i], 11, -358537222);
+      c = hh(c, d, a, b, x[i + 3], 16, -722521979);
+      b = hh(b, c, d, a, x[i + 6], 23, 76029189);
+      a = hh(a, b, c, d, x[i + 9], 4, -640364487);
+      d = hh(d, a, b, c, x[i + 12], 11, -421815835);
+      c = hh(c, d, a, b, x[i + 15], 16, 530742520);
+      b = hh(b, c, d, a, x[i + 2], 23, -995338651);
+
+      a = ii(a, b, c, d, x[i], 6, -198630844);
+      d = ii(d, a, b, c, x[i + 7], 10, 1126891415);
+      c = ii(c, d, a, b, x[i + 14], 15, -1416354905);
+      b = ii(b, c, d, a, x[i + 5], 21, -57434055);
+      a = ii(a, b, c, d, x[i + 12], 6, 1700485571);
+      d = ii(d, a, b, c, x[i + 3], 10, -1894986606);
+      c = ii(c, d, a, b, x[i + 10], 15, -1051523);
+      b = ii(b, c, d, a, x[i + 1], 21, -2054922799);
+      a = ii(a, b, c, d, x[i + 8], 6, 1873313359);
+      d = ii(d, a, b, c, x[i + 15], 10, -30611744);
+      c = ii(c, d, a, b, x[i + 6], 15, -1560198380);
+      b = ii(b, c, d, a, x[i + 13], 21, 1309151649);
+      a = ii(a, b, c, d, x[i + 4], 6, -145523070);
+      d = ii(d, a, b, c, x[i + 11], 10, -1120210379);
+      c = ii(c, d, a, b, x[i + 2], 15, 718787259);
+      b = ii(b, c, d, a, x[i + 9], 21, -343485551);
+
+      a = safeAdd(a, olda);
+      b = safeAdd(b, oldb);
+      c = safeAdd(c, oldc);
+      d = safeAdd(d, oldd);
+    }
+    return [a, b, c, d];
+  }
+
+  function bytesToWords(bytes) {
+    var words = [], i;
+    for (i = 0; i < bytes.length; i++) {
+      words[i >> 2] = (words[i >> 2] || 0) | (bytes[i] << ((i % 4) * 8));
+    }
+    return words;
+  }
+
+  function wordsToBytes(words) {
+    var bytes = [], i;
+    for (i = 0; i < words.length * 32; i += 8) {
+      bytes.push((words[i >> 5] >>> (i % 32)) & 0xff);
+    }
+    return bytes;
+  }
+
+  function bytesToHex(bytes) {
+    var hex = '', i, b;
+    for (i = 0; i < bytes.length; i++) {
+      b = bytes[i] & 0xff;
+      hex += (b < 16 ? '0' : '') + b.toString(16);
+    }
+    return hex;
+  }
+
+  function md5Bytes(bytes) {
+    return new Uint8Array(wordsToBytes(binlMD5(bytesToWords(bytes), bytes.length * 8)));
+  }
+
+  function md5hex(str) {
+    return bytesToHex(md5Bytes(utf8Bytes(str)));
+  }
+
+  return { md5hex: md5hex, md5Bytes: md5Bytes, utf8Bytes: utf8Bytes, bytesToHex: bytesToHex };
+});
+
+</script>
+<script>
+'use strict';
+/*
+ * 纯 JS AES-256（ECB 模式，仅用于禁漫 App 协议的响应解密）。
+ * WebCrypto 不支持 ECB，所以内置一份最小实现。
+ *
+ * 说明：S-box 在加载时用 GF(2^8) 运算生成，避免手抄 256 字节表出错。
+ * 用法：AESECB.decryptECB(keyBytes(32), cipherBytes) -> Uint8Array
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.AESECB = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var EXP = new Uint8Array(512);
+  var LOG = new Uint8Array(256);
+
+  function xtime(a) {
+    a <<= 1;
+    if (a & 0x100) a ^= 0x11b;
+    return a & 0xff;
+  }
+
+  // 注意：AES 的域多项式 0x11b 下，2 不是本原元（阶只有 51），
+  // 必须用 3（x+1）来生成指数/对数表。
+  (function initTables() {
+    var x = 1, i;
+    for (i = 0; i < 255; i++) {
+      EXP[i] = x;
+      LOG[x] = i;
+      x = xtime(x) ^ x; // x * 3
+    }
+    for (i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  })();
+
+  function gmulSlow(a, b) {
+    var p = 0;
+    while (b) {
+      if (b & 1) p ^= a;
+      a = xtime(a);
+      b >>= 1;
+    }
+    return p & 0xff;
+  }
+
+  function gmul(a, b) {
+    if (a === 0 || b === 0) return 0;
+    return EXP[LOG[a] + LOG[b]];
+  }
+
+  // 用平方-乘直接算 a^254，不依赖生成元假设
+  function ginv(a) {
+    if (a === 0) return 0;
+    var result = 1, base = a, e = 254;
+    while (e) {
+      if (e & 1) result = gmulSlow(result, base);
+      base = gmulSlow(base, base);
+      e >>= 1;
+    }
+    return result;
+  }
+
+  function rotl8(x, n) {
+    return ((x << n) | (x >>> (8 - n))) & 0xff;
+  }
+
+  var SBOX = new Uint8Array(256);
+  var INV_SBOX = new Uint8Array(256);
+
+  (function initSbox() {
+    var i, inv;
+    for (i = 0; i < 256; i++) {
+      inv = ginv(i);
+      SBOX[i] = (inv ^ rotl8(inv, 1) ^ rotl8(inv, 2) ^ rotl8(inv, 3) ^ rotl8(inv, 4) ^ 0x63) & 0xff;
+    }
+    for (i = 0; i < 256; i++) INV_SBOX[SBOX[i]] = i;
+  })();
+
+  function expandKey(key) {
+    if (key.length !== 32) throw new Error('AES-256 密钥必须是 32 字节');
+    var Nk = 8, Nr = 14;
+    var totalWords = 4 * (Nr + 1); // 60
+    var w = new Uint8Array(totalWords * 4);
+    w.set(key, 0);
+
+    var rcon = 1, i, j, t0, t1, t2, t3;
+    for (i = Nk; i < totalWords; i++) {
+      t0 = w[(i - 1) * 4];
+      t1 = w[(i - 1) * 4 + 1];
+      t2 = w[(i - 1) * 4 + 2];
+      t3 = w[(i - 1) * 4 + 3];
+      if (i % Nk === 0) {
+        var tmp = t0;
+        t0 = SBOX[t1] ^ rcon;
+        t1 = SBOX[t2];
+        t2 = SBOX[t3];
+        t3 = SBOX[tmp];
+        rcon = xtime(rcon);
+      } else if (i % Nk === 4) {
+        t0 = SBOX[t0];
+        t1 = SBOX[t1];
+        t2 = SBOX[t2];
+        t3 = SBOX[t3];
+      }
+      for (j = 0; j < 4; j++) {
+        w[i * 4 + j] = w[(i - Nk) * 4 + j] ^ [t0, t1, t2, t3][j];
+      }
+    }
+    return { w: w, Nr: Nr };
+  }
+
+  function addRoundKey(s, w, round) {
+    var off = round * 16;
+    for (var i = 0; i < 16; i++) s[i] ^= w[off + i];
+  }
+
+  function subBytes(s) {
+    for (var i = 0; i < 16; i++) s[i] = SBOX[s[i]];
+  }
+
+  function invSubBytes(s) {
+    for (var i = 0; i < 16; i++) s[i] = INV_SBOX[s[i]];
+  }
+
+  // 状态按列优先存放：s[r + 4c]，与 AES 标准一致
+  function shiftRows(s) {
+    var t;
+    t = s[1]; s[1] = s[5]; s[5] = s[9]; s[9] = s[13]; s[13] = t;
+    t = s[2]; s[2] = s[10]; s[10] = t;
+    t = s[6]; s[6] = s[14]; s[14] = t;
+    t = s[15]; s[15] = s[11]; s[11] = s[7]; s[7] = s[3]; s[3] = t;
+  }
+
+  function invShiftRows(s) {
+    var t;
+    t = s[13]; s[13] = s[9]; s[9] = s[5]; s[5] = s[1]; s[1] = t;
+    t = s[2]; s[2] = s[10]; s[10] = t;
+    t = s[6]; s[6] = s[14]; s[14] = t;
+    t = s[3]; s[3] = s[7]; s[7] = s[11]; s[11] = s[15]; s[15] = t;
+  }
+
+  function mixColumns(s) {
+    for (var c = 0; c < 4; c++) {
+      var i = c * 4;
+      var a0 = s[i], a1 = s[i + 1], a2 = s[i + 2], a3 = s[i + 3];
+      s[i] = xtime(a0) ^ (xtime(a1) ^ a1) ^ a2 ^ a3;
+      s[i + 1] = a0 ^ xtime(a1) ^ (xtime(a2) ^ a2) ^ a3;
+      s[i + 2] = a0 ^ a1 ^ xtime(a2) ^ (xtime(a3) ^ a3);
+      s[i + 3] = (xtime(a0) ^ a0) ^ a1 ^ a2 ^ xtime(a3);
+    }
+  }
+
+  function invMixColumns(s) {
+    for (var c = 0; c < 4; c++) {
+      var i = c * 4;
+      var a0 = s[i], a1 = s[i + 1], a2 = s[i + 2], a3 = s[i + 3];
+      s[i] = gmul(a0, 14) ^ gmul(a1, 11) ^ gmul(a2, 13) ^ gmul(a3, 9);
+      s[i + 1] = gmul(a0, 9) ^ gmul(a1, 14) ^ gmul(a2, 11) ^ gmul(a3, 13);
+      s[i + 2] = gmul(a0, 13) ^ gmul(a1, 9) ^ gmul(a2, 14) ^ gmul(a3, 11);
+      s[i + 3] = gmul(a0, 11) ^ gmul(a1, 13) ^ gmul(a2, 9) ^ gmul(a3, 14);
+    }
+  }
+
+  function encryptBlock(ks, input) {
+    var s = new Uint8Array(16);
+    s.set(input);
+    addRoundKey(s, ks.w, 0);
+    for (var r = 1; r < ks.Nr; r++) {
+      subBytes(s);
+      shiftRows(s);
+      mixColumns(s);
+      addRoundKey(s, ks.w, r);
+    }
+    subBytes(s);
+    shiftRows(s);
+    addRoundKey(s, ks.w, ks.Nr);
+    return s;
+  }
+
+  function decryptBlock(ks, input) {
+    var s = new Uint8Array(16);
+    s.set(input);
+    addRoundKey(s, ks.w, ks.Nr);
+    for (var r = ks.Nr - 1; r >= 1; r--) {
+      invShiftRows(s);
+      invSubBytes(s);
+      addRoundKey(s, ks.w, r);
+      invMixColumns(s);
+    }
+    invShiftRows(s);
+    invSubBytes(s);
+    addRoundKey(s, ks.w, 0);
+    return s;
+  }
+
+  function decryptECB(keyBytes, data) {
+    var ks = expandKey(keyBytes);
+    if (data.length % 16 !== 0) throw new Error('密文长度必须是 16 的倍数');
+    var out = new Uint8Array(data.length);
+    for (var i = 0; i < data.length; i += 16) {
+      out.set(decryptBlock(ks, data.subarray(i, i + 16)), i);
+    }
+    return out;
+  }
+
+  function encryptECB(keyBytes, data) {
+    var ks = expandKey(keyBytes);
+    if (data.length % 16 !== 0) throw new Error('明文长度必须是 16 的倍数');
+    var out = new Uint8Array(data.length);
+    for (var i = 0; i < data.length; i += 16) {
+      out.set(encryptBlock(ks, data.subarray(i, i + 16)), i);
+    }
+    return out;
+  }
+
+  return {
+    decryptECB: decryptECB,
+    encryptECB: encryptECB,
+    expandKey: expandKey,
+    SBOX: SBOX
+  };
+});
+
+</script>
+<script>
+'use strict';
+/*
+ * 禁漫 App 协议的浏览器实现（纯前端，无后端）。
+ *
+ * 与 server.js 的对应关系：
+ *  - token / tokenparam 请求头
+ *  - {"code":200,"data":"<base64(AES-256-ECB)>"} 响应解密
+ *  - /setting 取版本号
+ *  - 域名服务器（字节云 TOS）拉取最新 API 线路，三级降级
+ *  - 图片直连 CDN + 切片乱序还原所需参数
+ *
+ * 注意：浏览器不允许设置 User-Agent / Accept-Encoding，这两项不需要；
+ *       Cookie 也不再使用（实测 API 只认 token）。
+ */
+(function (global) {
+  'use strict';
+
+  var APP_TOKEN_SECRET = '185Hcomic3PAPP7R';
+  var APP_DATA_SECRET = '185Hcomic3PAPP7R';
+  var DOMAIN_SERVER_SECRET = 'diosfjckwpqpdfjkvnqQjsik';
+  var APP_VERSION_FALLBACK = '2.1.2';
+  var SCRAMBLE_DEFAULT = 220980;
+  var SCRAMBLE_268850 = 268850;
+  var SCRAMBLE_421926 = 421926;
+
+  var DEFAULTS = {
+    apiHosts: [
+      'www.cdnhjk.net',
+      'www.cdngwc.cc',
+      'www.cdngwc.net',
+      'www.cdngwc.club',
+      'www.cdnutc.me'
+    ],
+    domainServers: [
+      'https://rup4a04-c01.tos-ap-southeast-1.bytepluses.com/newsvr-2025.txt',
+      'https://rup4a04-c02.tos-cn-hongkong.bytepluses.com/newsvr-2025.txt',
+      'https://rup4a04-c03.tos-cn-beijing.bytepluses.com.cn/newsvr-2025.txt'
+    ],
+    imageHosts: [
+      'cdn-msp.jmapiproxy1.cc',
+      'cdn-msp.jmapiproxy2.cc',
+      'cdn-msp2.jmapiproxy2.cc',
+      'cdn-msp3.jmapiproxy2.cc',
+      'cdn-msp.jmapinodeudzn.net',
+      'cdn-msp3.jmapinodeudzn.net'
+    ],
+    // 乱序阈值：目前实测所有作品都是 220980；如有变化可在设置里改
+    scrambleId: SCRAMBLE_DEFAULT,
+    // 关掉乱序还原（看图更"原样"，一般不用）
+    disableDescramble: false,
+    // 不自动更新域名（调试用）
+    disableDomainRefresh: false
+  };
+
+  var SETTINGS_KEY = 'jmw_settings';
+  var LAST_HOST_KEY = 'jmw_last_host';
+  var CACHE_TTL = 5 * 60 * 1000;
+
+  var cache = new Map();
+
+  function cacheGet(key) {
+    var it = cache.get(key);
+    if (!it) return null;
+    if (Date.now() - it.t > CACHE_TTL) { cache.delete(key); return null; }
+    return it.v;
+  }
+  function cacheSet(key, v) {
+    cache.set(key, { t: Date.now(), v: v });
+    if (cache.size > 100) cache.delete(cache.keys().next().value);
+  }
+
+  function loadSettings() {
+    var out = {};
+    try {
+      var raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+      out = Object.assign({}, DEFAULTS, raw || {});
+    } catch (e) {
+      out = Object.assign({}, DEFAULTS);
+    }
+    if (!Array.isArray(out.apiHosts) || !out.apiHosts.length) out.apiHosts = DEFAULTS.apiHosts.slice();
+    if (!Array.isArray(out.imageHosts) || !out.imageHosts.length) out.imageHosts = DEFAULTS.imageHosts.slice();
+    if (!Array.isArray(out.domainServers) || !out.domainServers.length) out.domainServers = DEFAULTS.domainServers.slice();
+    return out;
+  }
+
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.cfg)); } catch (e) { /* ignore */ }
+  }
+
+  var state = {
+    cfg: loadSettings(),
+    ver: APP_VERSION_FALLBACK,
+    sessionTs: 0,
+    lastGoodHost: (function () {
+      try { return localStorage.getItem(LAST_HOST_KEY) || ''; } catch (e) { return ''; }
+    })(),
+    freshHosts: [],
+    freshTs: 0
+  };
+
+  function nowSec() { return Math.floor(Date.now() / 1000); }
+
+  function md5hex(s) { return global.JM_MD5.md5hex(String(s)); }
+
+  function b64ToBytes(b64) {
+    var bin = atob(String(b64));
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function decryptJMData(dataB64, ts, secret) {
+    var key = global.JM_MD5.utf8Bytes(md5hex(String(ts) + secret));
+    var raw = global.AESECB.decryptECB(key, b64ToBytes(dataB64));
+    var end = raw.length;
+    if (end > 0) {
+      var pad = raw[end - 1];
+      if (pad > 0 && pad <= 16) end -= pad;
+    }
+    return new TextDecoder().decode(raw.subarray(0, end));
+  }
+
+  function apiHeaders(ts, ver) {
+    return {
+      'token': md5hex(String(ts) + APP_TOKEN_SECRET),
+      'tokenparam': String(ts) + ',' + ver,
+      'Accept': 'application/json, text/plain, */*'
+    };
+  }
+
+  function cleanHosts(list) {
+    var out = [], seen = {};
+    for (var i = 0; i < (list || []).length; i++) {
+      var d = list[i];
+      if (typeof d !== 'string') continue;
+      d = d.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+      if (/^[\w.\-]+$/.test(d) && d.indexOf('.') > 0 && !seen[d]) {
+        seen[d] = 1;
+        out.push(d);
+      }
+    }
+    return out;
+  }
+
+  function raceSuccess(makers) {
+    return new Promise(function (resolve, reject) {
+      var errors = [];
+      var pending = makers.length;
+      var done = false;
+      if (!pending) return reject(new Error('没有可尝试的目标'));
+      makers.forEach(function (mk) {
+        Promise.resolve().then(mk).then(function (r) {
+          if (!done) { done = true; resolve(r); }
+        }).catch(function (e) {
+          errors.push(e);
+          if (--pending === 0 && !done) reject(errors.filter(Boolean)[0] || new Error('全部失败'));
+        });
+      });
+    });
+  }
+
+  function fetchWithTimeout(url, opts, timeout) {
+    opts = opts || {};
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = null;
+    if (ctrl) {
+      opts.signal = ctrl.signal;
+      timer = setTimeout(function () { ctrl.abort(); }, timeout || 15000);
+    }
+    return fetch(url, opts).then(function (res) {
+      if (timer) clearTimeout(timer);
+      return res;
+    }, function (err) {
+      if (timer) clearTimeout(timer);
+      throw err;
+    });
+  }
+
+  function fetchJSON(url, headers, timeout) {
+    return fetchWithTimeout(url, { method: 'GET', headers: headers, mode: 'cors', cache: 'no-store' }, timeout)
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      });
+  }
+
+  function fetchText(url, headers, timeout) {
+    return fetchWithTimeout(url, { method: 'GET', headers: headers, mode: 'cors', cache: 'no-store' }, timeout)
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.text();
+      });
+  }
+
+  function apiHostCandidates() {
+    var manual = cleanHosts(state.cfg.apiHosts);
+    var head = [], seen = {};
+    if (state.lastGoodHost) { head.push(state.lastGoodHost); seen[state.lastGoodHost] = 1; }
+    for (var i = 0; i < state.freshHosts.length; i++) {
+      var h = state.freshHosts[i];
+      if (!seen[h]) { seen[h] = 1; head.push(h); }
+    }
+    for (var j = 0; j < manual.length; j++) {
+      if (!seen[manual[j]]) { seen[manual[j]] = 1; head.push(manual[j]); }
+    }
+    return head;
+  }
+
+  function updateLastHost(host) {
+    state.lastGoodHost = host;
+    try { localStorage.setItem(LAST_HOST_KEY, host); } catch (e) { /* ignore */ }
+  }
+
+  function fetchFreshApiHosts() {
+    if (state.cfg.disableDomainRefresh) return Promise.resolve(state.freshHosts);
+    var tasks = state.cfg.domainServers.map(function (u) {
+      return function () {
+        return fetchText(u, { 'Accept': 'text/plain, */*' }, 12000).then(function (text) {
+          text = String(text).trim();
+          while (text && text.charCodeAt(0) > 127) text = text.slice(1);
+          var json = JSON.parse(decryptJMData(text, '', DOMAIN_SERVER_SECRET));
+          if (!json || !Array.isArray(json.Server) || !json.Server.length) {
+            throw new Error('域名服务器返回无 Server');
+          }
+          return json.Server;
+        });
+      };
+    });
+    return raceSuccess(tasks).then(function (list) {
+      var hosts = cleanHosts(list);
+      if (!hosts.length) throw new Error('域名服务器返回列表为空');
+      state.freshHosts = hosts;
+      state.freshTs = Date.now();
+      return hosts;
+    });
+  }
+
+  function getFreshApiHosts() {
+    if (state.freshHosts.length && Date.now() - state.freshTs < 30 * 60 * 1000) {
+      return Promise.resolve(state.freshHosts);
+    }
+    return fetchFreshApiHosts().catch(function () { return state.freshHosts; });
+  }
+
+  function refreshSession() {
+    var ts = nowSec();
+    var hosts = apiHostCandidates().slice(0, 3);
+    var errors = [];
+    var attempt = function (i) {
+      if (i >= hosts.length) return Promise.reject(errors[0] || new Error('无法建立会话'));
+      var host = hosts[i];
+      return fetchJSON('https://' + host + '/setting', apiHeaders(ts, state.ver), 12000).then(function (j) {
+        if (!j || j.code !== 200 || !j.data) throw new Error(host + ' code=' + (j && j.code));
+        var data = JSON.parse(decryptJMData(j.data, ts, APP_DATA_SECRET));
+        if (data.jm3_version) state.ver = String(data.jm3_version);
+        state.sessionTs = Date.now();
+        updateLastHost(host);
+        return true;
+      }).catch(function (e) {
+        errors.push(e);
+        return attempt(i + 1);
+      });
+    };
+    return attempt(0);
+  }
+
+  function ensureSession() {
+    if (Date.now() - state.sessionTs < 10 * 60 * 1000) return Promise.resolve();
+    return refreshSession().catch(function () {
+      // 拿不到版本号也继续尝试，用兜底版本
+      state.sessionTs = Date.now() - 9 * 60 * 1000;
+      return null;
+    });
+  }
+
+  function apiReq(pathWithQuery) {
+    var hosts = apiHostCandidates();
+    if (!hosts.length) return Promise.reject(new Error('API 域名列表为空，请在设置里填写'));
+
+    var tryHost = function (host) {
+      var ts = nowSec();
+      return fetchJSON('https://' + host + pathWithQuery, apiHeaders(ts, state.ver), 15000).then(function (j) {
+        if (!j || j.code !== 200 || !j.data) {
+          var msg = (j && (j.errorMsg || j.msg)) || ('code=' + (j && j.code));
+          throw new Error(host + ' 接口返回异常: ' + msg);
+        }
+        var data = JSON.parse(decryptJMData(j.data, ts, APP_DATA_SECRET));
+        updateLastHost(host);
+        return data;
+      });
+    };
+
+    var errors = [];
+    return ensureSession().then(function () {
+      return tryHost(hosts[0]);
+    }).catch(function (e) {
+      errors.push(e);
+      return raceSuccess(hosts.slice(1).map(function (h) { return function () { return tryHost(h); }; }));
+    }).catch(function (e) {
+      errors.push(e);
+      return getFreshApiHosts().then(function () {
+        var fresh = apiHostCandidates();
+        if (!fresh.length) throw new Error('没有可用的 API 域名');
+        return tryHost(fresh[0]);
+      });
+    }).catch(function (e) {
+      errors.push(e);
+      throw errors[errors.length - 1] || new Error('请求失败');
+    });
+  }
+
+  /* ---------------- 数据归一化 ---------------- */
+
+  function toStrList(v, splitSpace) {
+    if (!v) return [];
+    if (typeof v === 'string') {
+      var re = splitSpace ? /[\s,，、|]+/ : /[,，、|]+/;
+      return v.split(re).map(function (s) { return s.trim(); }).filter(Boolean);
+    }
+    if (Array.isArray(v)) {
+      return v.map(function (it) {
+        return typeof it === 'string' ? it : (it && (it.name || it.title)) || '';
+      }).filter(Boolean);
+    }
+    return [];
+  }
+
+  function normSeries(v) {
+    if (!Array.isArray(v)) return [];
+    return v.map(function (it, i) {
+      return {
+        id: String(it && it.id),
+        name: String((it && it.name) || ''),
+        sort: Number((it && it.sort) || i + 1)
+      };
+    }).filter(function (s) { return /^\d+$/.test(s.id); });
+  }
+
+  function sliceCount(scrambleId, aid, filenameNoExt) {
+    if (aid < scrambleId) return 0;
+    if (aid < SCRAMBLE_268850) return 10;
+    var x = aid < SCRAMBLE_421926 ? 10 : 8;
+    var s = md5hex(String(aid) + filenameNoExt);
+    var num = s.charCodeAt(s.length - 1) % x;
+    return num * 2 + 2;
+  }
+
+  function imageUrl(photoId, filename, idx) {
+    var hosts = state.cfg.imageHosts;
+    var host = hosts[idx % hosts.length];
+    return 'https://' + host + '/media/photos/' + photoId + '/' + filename;
+  }
+
+  function normalizeAlbum(id, d) {
+    return {
+      id: String(d.id || id),
+      title: (typeof d.name === 'string' && d.name.trim()) || ('作品 ' + id),
+      authors: toStrList(d.author),
+      works: toStrList(d.works),
+      actors: toStrList(d.actors),
+      tags: toStrList(d.tags),
+      description: typeof d.description === 'string' ? d.description : '',
+      series: normSeries(d.series),
+      source: 'api'
+    };
+  }
+
+  function normalizeChapter(id, d) {
+    var photoId = String(d.id || id);
+    var aid = Number(photoId);
+    var scrambleId = Number(state.cfg.scrambleId) || SCRAMBLE_DEFAULT;
+    var filenames = Array.isArray(d.images) ? d.images.filter(function (x) { return typeof x === 'string'; }) : [];
+    var images = filenames.map(function (fn, idx) {
+      var noExt = fn.replace(/\.\w+$/, '');
+      return {
+        url: imageUrl(photoId, fn, idx),
+        num: state.cfg.disableDescramble ? 0 : sliceCount(scrambleId, aid, noExt),
+        filename: fn
+      };
+    });
+    return {
+      id: photoId,
+      title: (typeof d.name === 'string' && d.name.trim()) || ('章节 ' + photoId),
+      albumId: String(d.series_id || ''),
+      series: normSeries(d.series),
+      tags: toStrList(d.tags, true),
+      images: images,
+      source: 'api'
+    };
+  }
+
+  /* ---------------- 对外接口 ---------------- */
+
+  function loadAlbum(id) {
+    id = String(id).trim();
+    if (!/^\d+$/.test(id)) return Promise.reject(new Error('作品号必须是数字'));
+    return cacheGet('A:' + id) ? Promise.resolve(cacheGet('A:' + id)) : apiReq('/album?id=' + id).then(function (d) {
+      if (!d || d.name == null) throw new Error('作品不存在');
+      var out = normalizeAlbum(id, d);
+      cacheSet('A:' + id, out);
+      return out;
+    });
+  }
+
+  function loadChapter(id) {
+    id = String(id).trim();
+    if (!/^\d+$/.test(id)) return Promise.reject(new Error('章节号必须是数字'));
+    return cacheGet('C:' + id) ? Promise.resolve(cacheGet('C:' + id)) : apiReq('/chapter?id=' + id).then(function (d) {
+      if (!d || d.name == null) throw new Error('章节不存在');
+      var out = normalizeChapter(id, d);
+      cacheSet('C:' + id, out);
+      return out;
+    });
+  }
+
+  /**
+   * 解析用户输入：纯数字按作品处理；也接受 /album/123、/photo/456 这类链接。
+   * 返回 { kind: 'album'|'chapter', id }
+   */
+  function parseInput(text) {
+    text = String(text || '').trim();
+    if (!text) return null;
+    var m = text.match(/(?:album|photo)\/(\d+)/i);
+    if (m) return { kind: /photo/i.test(m[0]) ? 'chapter' : 'album', id: m[1] };
+    if (/^\d+$/.test(text)) return { kind: 'album', id: text };
+    m = text.match(/(\d{3,})/);
+    if (m) return { kind: 'album', id: m[1] };
+    return null;
+  }
+
+  function updateSettings(patch) {
+    Object.keys(patch || {}).forEach(function (k) {
+      state.cfg[k] = patch[k];
+    });
+    saveSettings();
+  }
+
+  function resetSettings() {
+    state.cfg = loadSettings.call(null);
+    state.cfg = JSON.parse(JSON.stringify(DEFAULTS));
+    saveSettings();
+  }
+
+  function clearCache() {
+    cache.clear();
+  }
+
+  /* 轻量连通性探测：能拿到 /setting 的版本号即视为线路可用 */
+  function probe() {
+    return refreshSession().then(function () {
+      return { ok: true, host: state.lastGoodHost, ver: state.ver };
+    });
+  }
+
+  global.JMApi = {
+    probe: probe,
+    loadAlbum: loadAlbum,
+    loadChapter: loadChapter,
+    parseInput: parseInput,
+    updateSettings: updateSettings,
+    resetSettings: resetSettings,
+    clearCache: clearCache,
+    getSettings: function () { return state.cfg; },
+    getState: function () { return state; },
+    decryptJMData: decryptJMData,
+    sliceCount: sliceCount,
+    DEFAULT_SCRAMBLE: SCRAMBLE_DEFAULT
+  };
+})(window);
+
+</script>
+<script>
+'use strict';
+/*
+ * 禁漫图片乱序还原（与 App 解码逻辑一致）。
+ *
+ * 服务端图片被横向切成 num 条并按"从底到顶倒序"排列（余数行贴在图片末尾）。
+ * 还原：从乱序图底部开始，逐条贴回原图顶部；第 0 条多带 over 行余数。
+ * num 由服务端按 md5(作品号+文件名) 逐图计算（部分老作品固定 10，未乱序的作品 num=0）。
+ */
+(function (global) {
+  'use strict';
+
+  function decodeScrambled(src, num) {
+    num = Math.floor(num);
+    if (!num || num <= 1) return null; // 无需还原
+    var w = src.width;
+    var h = src.height;
+    var c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    var ctx = c.getContext('2d');
+    var move = Math.floor(h / num);
+    var over = h % num;
+    for (var i = 0; i < num; i++) {
+      var ySrc = h - move * (i + 1) - over;
+      var yDst = move * i;
+      var m = move;
+      if (i === 0) {
+        m += over; // 余数行归入最上面一条
+      } else {
+        yDst += over;
+      }
+      if (m <= 0) continue;
+      ctx.drawImage(src, 0, ySrc, w, m, 0, yDst, w, m);
+    }
+    return c;
+  }
+
+  global.JMScramble = { decodeScrambled: decodeScrambled };
+})(window);
+
+</script>
+<script>
+'use strict';
+/*
+ * 纯静态版前端逻辑。
+ * 数据来自 JMApi（js/jm-api.js），图片直连 CDN，乱序在浏览器内还原。
+ * 没有任何后端请求：不依赖本地服务，也不依赖任何自建服务器。
+ */
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  var HISTORY_KEY = 'jmw_history';
+  var AGE_KEY = 'jmw_age_ok';
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function lsGet(k) {
+    try { return localStorage.getItem(k); } catch (e) { return null; }
+  }
+  function lsSet(k, v) {
+    try { localStorage.setItem(k, v); } catch (e) { /* 隐私模式下忽略 */ }
+  }
+
+  var S = {
+    album: null,
+    photo: null,
+    chapterId: '',
+    pendingAlbumId: '',
+    curPage: 0,
+    history: loadHistory(),
+    bitmaps: new Map(),
+    io: null,
+    albumReqId: 0,
+    readerReqId: 0
+  };
+
+  function loadHistory() {
+    try {
+      var arr = JSON.parse(lsGet(HISTORY_KEY) || '[]');
+      if (!Array.isArray(arr)) return [];
+      return arr.filter(function (x) { return x && x.id; }).slice(0, 30);
+    } catch (e) { return []; }
+  }
+  function persistHistory() {
+    lsSet(HISTORY_KEY, JSON.stringify(S.history.slice(0, 30)));
+  }
+
+  /* ---------------- 通用 UI ---------------- */
+  var views = null;
+  function show(name) {
+    if (!views) views = { home: $('home'), detail: $('detail') };
+    views.home.hidden = name !== 'home';
+    views.detail.hidden = name !== 'detail';
+    if (name === 'home') window.scrollTo(0, 0);
+  }
+
+  var toastTimer = null;
+  function toast(msg, isErr) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = isErr ? 'err' : '';
+    t.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.style.display = 'none'; }, isErr ? 7000 : 3500);
+  }
+
+  function showError(box, msg) {
+    box.innerHTML = '';
+    var d = document.createElement('div');
+    d.className = 'errbox';
+    d.innerHTML = '<div>' + esc(msg) + '</div><div class="hint">换成「测试连接」可以自动刷新线路，或检查网络后重试。</div>';
+    var b = document.createElement('button');
+    b.className = 'btn';
+    b.style.marginTop = '10px';
+    b.textContent = '打开设置';
+    b.onclick = openSettings;
+    d.appendChild(b);
+    box.appendChild(d);
+  }
+
+  /* ---------------- 首页 ---------------- */
+  function renderHistory() {
+    var box = $('historyChips');
+    box.innerHTML = '';
+    if (!S.history.length) {
+      box.innerHTML = '<span class="dim" style="font-size:13.5px;">暂无记录</span>';
+      return;
+    }
+    S.history.slice(0, 12).forEach(function (h) {
+      var chip = document.createElement('span');
+      chip.className = 'chip';
+      var b = document.createElement('button');
+      b.className = 't';
+      b.style.cssText = 'border:0;background:none;color:inherit;padding:0;cursor:pointer;';
+      b.textContent = h.title || ('作品 ' + h.id);
+      b.title = '继续阅读' + (h.chapterName ? '：' + h.chapterName : '');
+      b.onclick = function () {
+        S.pendingAlbumId = h.id;
+        openReader(h.chapterId || h.id, h.page || 0);
+      };
+      var x = document.createElement('button');
+      x.className = 'x';
+      x.textContent = '×';
+      x.title = '删除记录';
+      x.onclick = function (ev) {
+        ev.stopPropagation();
+        S.history = S.history.filter(function (it) { return it.id !== h.id; });
+        persistHistory();
+        renderHistory();
+      };
+      chip.appendChild(b);
+      chip.appendChild(x);
+      box.appendChild(chip);
+    });
+  }
+
+  function refreshStatus() {
+    var box = $('statusBox');
+    box.className = 'card hint-box';
+    box.textContent = '正在检测线路…';
+    JMApi.probe().then(function (r) {
+      var cfg = JMApi.getSettings();
+      box.className = 'card hint-box ok';
+      box.innerHTML = '✅ 线路可用：<b>' + esc(r.host || '自动选择') + '</b> · 接口版本 ' +
+        esc(r.ver) + ' · 乱序阈值 ' + esc(String(cfg.scrambleId));
+    }).catch(function (e) {
+      box.className = 'card hint-box bad';
+      box.innerHTML = '⚠️ 线路暂时不可用（' + esc(e.message || e) + '）。<br>' +
+        '可以直接输入作品号试试，或点右上角 ⚙ →「测试连接」刷新线路。';
+    });
+  }
+
+  /* ---------------- 详情页 ---------------- */
+  function openAlbum(id) {
+    var reqId = ++S.albumReqId;
+    S.album = null;
+    S.photo = null;
+    S.chapterId = '';
+    show('detail');
+    $('detailErr').innerHTML = '';
+    $('dTitle').textContent = '加载中…';
+    $('dMeta').textContent = '';
+    $('dTags').innerHTML = '';
+    $('dDesc').textContent = '';
+    $('coverBox').innerHTML = '封面加载中…';
+    $('chapterWrap').hidden = true;
+    $('chapters').innerHTML = '';
+    $('startBtn').disabled = true;
+    JMApi.loadAlbum(id).then(function (a) {
+      if (reqId !== S.albumReqId) return;
+      S.album = a;
+      renderDetail(a);
+      loadCover(a);
+    }).catch(function (e) {
+      if (reqId !== S.albumReqId) return;
+      // 有些链接其实是章节号：再按章节试一次
+      JMApi.loadChapter(id).then(function (p) {
+        if (reqId !== S.albumReqId) return;
+        $('dTitle').textContent = p.title;
+        S.pendingAlbumId = '';
+        openReader(p.id, 0);
+      }).catch(function () {
+        if (reqId !== S.albumReqId) return;
+        showError($('detailErr'), '获取作品信息失败：' + (e.message || e));
+        $('dTitle').textContent = '加载失败';
+      });
+    });
+  }
+
+  function renderDetail(a) {
+    $('dTitle').textContent = a.title;
+    var meta = [];
+    if (a.id) meta.push('作品号 ' + a.id);
+    if (a.authors && a.authors.length) meta.push('作者：' + a.authors.join(' / '));
+    if (a.works && a.works.length) meta.push('作品：' + a.works.join(' / '));
+    if (a.actors && a.actors.length) meta.push('登场：' + a.actors.join(' / '));
+    $('dMeta').textContent = meta.join(' · ');
+    var tags = $('dTags');
+    tags.innerHTML = '';
+    (a.tags || []).slice(0, 24).forEach(function (t) {
+      var s = document.createElement('span');
+      s.className = 'tag';
+      s.textContent = t;
+      tags.appendChild(s);
+    });
+    $('dDesc').textContent = a.description || '';
+    var wrap = $('chapterWrap');
+    var list = $('chapters');
+    list.innerHTML = '';
+    if (a.series && a.series.length) {
+      wrap.hidden = false;
+      a.series.forEach(function (ch) {
+        var b = document.createElement('button');
+        b.className = 'btn';
+        b.textContent = ch.name || ('第 ' + ch.sort + ' 话');
+        b.title = ch.name || ch.id;
+        b.onclick = function () { openReader(ch.id, 0); };
+        list.appendChild(b);
+      });
+    } else {
+      wrap.hidden = true;
+    }
+    $('startBtn').disabled = false;
+    $('startBtn').textContent = a.series && a.series.length ? '从第一话开始' : '开始阅读';
+  }
+
+  function loadCover(a) {
+    var photoId = (a.series && a.series.length) ? a.series[0].id : a.id;
+    var alive = function () { return S.album && S.album.id === a.id; };
+    JMApi.loadChapter(photoId).then(function (p) {
+      if (!alive()) return;
+      if (!p.images.length) { $('coverBox').textContent = '暂无封面'; return; }
+      var im = p.images[0];
+      // 封面同样可能是乱序图，必须走 canvas 还原，不能直接 <img>
+      getBitmap(im.url).then(function (bmp) {
+        if (!alive()) return;
+        var src = im.num > 1 ? JMScramble.decodeScrambled(bmp, im.num) : bmp;
+        var c = document.createElement('canvas');
+        c.width = bmp.width;
+        c.height = bmp.height;
+        c.style.width = '100%';
+        c.style.display = 'block';
+        c.getContext('2d').drawImage(src || bmp, 0, 0);
+        $('coverBox').innerHTML = '';
+        $('coverBox').classList.add('has-img');
+        $('coverBox').appendChild(c);
+      }).catch(function () {
+        if (!alive()) return;
+        var img = new Image();
+        img.referrerPolicy = 'no-referrer';
+        img.onload = function () {
+          if (!alive()) return;
+          $('coverBox').innerHTML = '';
+          $('coverBox').classList.add('has-img');
+          $('coverBox').appendChild(img);
+        };
+        img.onerror = function () { $('coverBox').textContent = '封面加载失败'; };
+        img.src = im.url;
+      });
+      if (!(a.series && a.series.length)) {
+        $('dMeta').textContent = ($('dMeta').textContent ? $('dMeta').textContent + ' · ' : '') + p.images.length + ' 页';
+      }
+    }).catch(function () {
+      if (alive()) $('coverBox').textContent = '封面加载失败';
+    });
+  }
+
+  /* ---------------- 阅读器 ---------------- */
+  function albumContainsChapter(a, chapterId) {
+    if (!a) return false;
+    if (a.series && a.series.length) return a.series.some(function (c) { return c.id === String(chapterId); });
+    return a.id === String(chapterId);
+  }
+
+  function chapterList() {
+    var a = S.album;
+    var p = S.photo;
+    if (a && a.series && a.series.length) return a.series;
+    if (p && p.series && p.series.length) return p.series;
+    return null;
+  }
+
+  function openReader(chapterId, jumpPage) {
+    chapterId = String(chapterId);
+    var reqId = ++S.readerReqId;
+    S.chapterId = chapterId;
+    S.photo = null;
+    S.curPage = 0;
+    $('reader').hidden = false;
+    $('pages').innerHTML = '<div class="pageSlot"><div class="ph"><div class="spinner"></div><div>加载中…</div></div></div>';
+    $('rTitle').textContent = '加载中…';
+    $('rPage').textContent = '';
+    closeSettings();
+
+    var keepAlbum = albumContainsChapter(S.album, chapterId);
+    var prep;
+    if (keepAlbum) {
+      prep = Promise.resolve();
+    } else {
+      S.album = null;
+      var pending = String(S.pendingAlbumId || '').trim();
+      prep = pending ? JMApi.loadAlbum(pending).then(function (a) { S.album = a; }).catch(function () { return null; })
+                     : Promise.resolve();
+    }
+
+    prep.then(function () {
+      return JMApi.loadChapter(chapterId);
+    }).then(function (p) {
+      if (reqId !== S.readerReqId) return;
+      if (!p.images.length) throw new Error('没有解析到任何图片');
+      S.photo = p;
+      S.pendingAlbumId = '';
+      buildReader(jumpPage || 0);
+      saveHistory(chapterId);
+    }).catch(function (e) {
+      if (reqId !== S.readerReqId) return;
+      var pages = $('pages');
+      pages.innerHTML = '';
+      var slot = document.createElement('div');
+      slot.className = 'pageSlot';
+      var card = document.createElement('div');
+      card.className = 'card';
+      card.style.margin = '20px';
+      var box = document.createElement('div');
+      card.appendChild(box);
+      slot.appendChild(card);
+      pages.appendChild(slot);
+      showError(box, '打开失败：' + (e.message || e));
+      $('rTitle').textContent = '打开失败';
+    });
+  }
+
+  function releaseBitmaps() {
+    S.bitmaps.forEach(function (v) {
+      try { if (v.bmp && v.bmp.close) v.bmp.close(); } catch (e) { /* noop */ }
+    });
+    S.bitmaps = new Map();
+  }
+
+  function buildReader(jumpPage) {
+    var p = S.photo;
+    var a = S.album;
+    var scrCount = 0;
+    p.images.forEach(function (im) { if (im.num > 1) scrCount++; });
+
+    var pages = $('pages');
+    pages.innerHTML = '';
+    pages.scrollTop = 0;
+    var pTitle = p.title || ('ID ' + p.id);
+    var aTitle = a && a.title ? a.title : '';
+    // 单话作品的作品名和章节名常常完全相同，避免标题重复
+    var headTitle = (aTitle && pTitle.indexOf(aTitle) === 0) ? pTitle : (aTitle ? aTitle + ' · ' + pTitle : pTitle);
+    $('rTitle').textContent = headTitle + (scrCount ? ' · 已自动还原乱序' : '');
+
+    releaseBitmaps();
+    if (S.io) S.io.disconnect();
+    S.io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) ensureDrawn(en.target);
+        else unloadSlot(en.target);
+      });
+    }, { root: pages, rootMargin: '1400px 0px' });
+
+    p.images.forEach(function (im, idx) {
+      var slot = document.createElement('div');
+      slot.className = 'pageSlot';
+      slot.dataset.url = im.url;
+      slot.dataset.num = im.num || 0;
+      slot.dataset.idx = idx;
+      slot.dataset.state = 'empty';
+      var ph = document.createElement('div');
+      ph.className = 'ph';
+      ph.innerHTML = '<div class="spinner"></div><div>第 ' + (idx + 1) + ' 页</div>';
+      slot.appendChild(ph);
+      var num = document.createElement('div');
+      num.className = 'num';
+      num.textContent = (idx + 1) + ' / ' + p.images.length;
+      slot.appendChild(num);
+      pages.appendChild(slot);
+      S.io.observe(slot);
+    });
+
+    updateChapterBar();
+    updatePageIndicator();
+    if (jumpPage > 0) {
+      requestAnimationFrame(function () {
+        var el = pages.children[jumpPage];
+        if (el) el.scrollIntoView();
+      });
+    }
+  }
+
+  function updateChapterBar() {
+    var bar = $('chBar');
+    var sel = $('chSel');
+    var list = chapterList();
+    if (!list) { bar.hidden = true; return; }
+    bar.hidden = false;
+    sel.innerHTML = '';
+    list.forEach(function (ch) {
+      var o = document.createElement('option');
+      o.value = ch.id;
+      o.textContent = ch.name || ('第 ' + ch.sort + ' 话');
+      if (ch.id === String(S.chapterId)) o.selected = true;
+      sel.appendChild(o);
+    });
+    var i = list.findIndex(function (c) { return c.id === String(S.chapterId); });
+    $('chPrev').disabled = i <= 0;
+    $('chNext').disabled = i === -1 || i >= list.length - 1;
+  }
+
+  function blobToBitmap(blob) {
+    if (window.createImageBitmap) return createImageBitmap(blob);
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(blob);
+      var img = new Image();
+      img.onload = function () { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('图片解码失败')); };
+      img.src = url;
+    });
+  }
+
+  function getBitmap(url) {
+    var hit = S.bitmaps.get(url);
+    if (hit) { hit.t = Date.now(); return Promise.resolve(hit.bmp); }
+    return fetch(url, { mode: 'cors', cache: 'force-cache', referrerPolicy: 'no-referrer' }).then(function (resp) {
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      return resp.blob();
+    }).then(blobToBitmap).then(function (bmp) {
+      S.bitmaps.set(url, { bmp: bmp, t: Date.now() });
+      if (S.bitmaps.size > 12) {
+        var oldest = null;
+        S.bitmaps.forEach(function (v, k) { if (!oldest || v.t < oldest.v.t) oldest = { k: k, v: v }; });
+        if (oldest) {
+          try { if (oldest.v.bmp && oldest.v.bmp.close) oldest.v.bmp.close(); } catch (e) { /* noop */ }
+          S.bitmaps.delete(oldest.k);
+        }
+      }
+      return bmp;
+    });
+  }
+
+  function ensureDrawn(slot) {
+    if (slot.dataset.state === 'drawn' || slot.dataset.state === 'loading' || slot.dataset.state === 'img') return;
+    slot.dataset.state = 'loading';
+    var ph = slot.querySelector('.ph');
+    if (ph) ph.innerHTML = '<div class="spinner"></div>';
+    getBitmap(slot.dataset.url).then(function (bmp) {
+      var num = Number(slot.dataset.num) || 0;
+      var canvas = document.createElement('canvas');
+      var w = bmp.width;
+      var h = bmp.height;
+      canvas.style.aspectRatio = w + ' / ' + h;
+      canvas.width = w;
+      canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      var drawn = num > 1 ? JMScramble.decodeScrambled(bmp, num) : null;
+      ctx.drawImage(drawn || bmp, 0, 0);
+      var old = slot.querySelector('canvas');
+      if (old) old.remove();
+      slot.insertBefore(canvas, slot.firstChild);
+      if (ph) ph.remove();
+      slot.dataset.state = 'drawn';
+    }).catch(function (e) {
+      // CORS 被挡时 <img> 通常还能显示，只是无法在 canvas 里还原乱序
+      fallbackImg(slot, e);
+    });
+  }
+
+  function fallbackImg(slot, err) {
+    if (slot.querySelector('img.pageImg')) return;
+    var ph = slot.querySelector('.ph');
+    if (ph) ph.remove();
+    var img = document.createElement('img');
+    img.className = 'pageImg';
+    img.loading = 'lazy';
+    img.referrerPolicy = 'no-referrer';
+    img.alt = '';
+    var done = false;
+    img.onload = function () {
+      done = true;
+      img.style.aspectRatio = img.naturalWidth + ' / ' + img.naturalHeight;
+      slot.dataset.state = 'drawn';
+      slot.dataset.fallback = '1';
+    };
+    img.onerror = function () {
+      if (done) return;
+      img.remove();
+      showSlotError(slot, err);
+    };
+    slot.dataset.state = 'img';
+    slot.insertBefore(img, slot.firstChild);
+    img.src = slot.dataset.url;
+  }
+
+  function showSlotError(slot, err) {
+    slot.dataset.state = 'error';
+    var ph = slot.querySelector('.ph');
+    if (!ph) {
+      ph = document.createElement('div');
+      ph.className = 'ph';
+      slot.appendChild(ph);
+    }
+    ph.innerHTML = '<div>第 ' + (Number(slot.dataset.idx) + 1) + ' 页加载失败</div>' +
+      '<div class="dim" style="font-size:12.5px;">' + esc(err && err.message ? err.message : err) + '</div>';
+    var b = document.createElement('button');
+    b.className = 'btn';
+    b.textContent = '重试';
+    b.onclick = function () {
+      slot.dataset.state = 'empty';
+      ensureDrawn(slot);
+    };
+    ph.appendChild(b);
+  }
+
+  function unloadSlot(slot) {
+    if (slot.dataset.state !== 'drawn') return;
+    var canvas = slot.querySelector('canvas');
+    if (!canvas) return; // <img> 交给浏览器自己回收
+    if (!canvas.dataset.ratio && canvas.style.aspectRatio) canvas.dataset.ratio = canvas.style.aspectRatio;
+    canvas.width = 1;
+    canvas.height = 1;
+    if (canvas.dataset.ratio) canvas.style.aspectRatio = canvas.dataset.ratio;
+    slot.dataset.state = 'empty';
+  }
+
+  function updatePageIndicator() {
+    var p = S.photo;
+    if (!p) return;
+    var pages = $('pages');
+    var total = p.images.length;
+    var cur = 0;
+    var mid = pages.scrollTop + pages.clientHeight * 0.35;
+    for (var i = 0; i < pages.children.length; i++) {
+      var child = pages.children[i];
+      if (child.offsetTop <= mid) cur = Number(child.dataset.idx || 0);
+      else break;
+    }
+    S.curPage = cur;
+    $('rPage').textContent = (cur + 1) + ' / ' + total;
+  }
+
+  function persistProgress() {
+    if (!S.photo) return;
+    var p = S.photo;
+    var a = S.album;
+    var key = a ? a.id : String(p.albumId || p.id);
+    for (var i = 0; i < S.history.length; i++) {
+      var h = S.history[i];
+      if (h.id === key && h.chapterId === String(S.chapterId)) {
+        h.page = S.curPage;
+        h.ts = Date.now();
+        persistHistory();
+        return;
+      }
+    }
+  }
+
+  function saveHistory(chapterId) {
+    var p = S.photo;
+    if (!p) return;
+    var a = S.album;
+    var key = a ? a.id : String(p.albumId || p.id);
+    var entry = {
+      id: key,
+      title: a ? a.title : p.title,
+      chapterId: String(chapterId),
+      chapterName: '',
+      page: 0,
+      ts: Date.now()
+    };
+    var list = chapterList();
+    if (list) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].id === String(chapterId)) entry.chapterName = list[i].name || '';
+      }
+    }
+    S.history = [entry].concat(S.history.filter(function (it) { return it.id !== key; })).slice(0, 30);
+    persistHistory();
+    renderHistory();
+  }
+
+  /* ---------------- 设置 ---------------- */
+  function openSettings() {
+    var cfg = JMApi.getSettings();
+    $('setApi').value = (cfg.apiHosts || []).join('\n');
+    $('setImage').value = (cfg.imageHosts || []).join('\n');
+    $('setScramble').value = cfg.scrambleId || JMApi.DEFAULT_SCRAMBLE;
+    $('setNoScr').checked = !!cfg.disableDescramble;
+    $('setNoRefresh').checked = !!cfg.disableDomainRefresh;
+    $('testSteps').hidden = true;
+    $('settingsModal').hidden = false;
+  }
+  function closeSettings() { $('settingsModal').hidden = true; }
+
+  function readSettingsForm() {
+    return {
+      apiHosts: $('setApi').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
+      imageHosts: $('setImage').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
+      scrambleId: Number($('setScramble').value) || JMApi.DEFAULT_SCRAMBLE,
+      disableDescramble: $('setNoScr').checked,
+      disableDomainRefresh: $('setNoRefresh').checked
+    };
+  }
+
+  function saveSettings() {
+    var next = readSettingsForm();
+    if (!next.apiHosts.length) { toast('API 线路至少要填一个域名', true); return; }
+    if (!next.imageHosts.length) { toast('图片 CDN 至少要填一个域名', true); return; }
+    JMApi.updateSettings(next);
+    closeSettings();
+    toast('设置已保存');
+    refreshStatus();
+  }
+
+  function resetSettings() {
+    JMApi.resetSettings();
+    JMApi.clearCache();
+    openSettings();
+    toast('已恢复默认设置');
+  }
+
+  function clearCache() {
+    JMApi.clearCache();
+    releaseBitmaps();
+    toast('缓存已清空');
+  }
+
+  function testConnection() {
+    var btn = $('testBtn');
+    var steps = $('testSteps');
+    var next = readSettingsForm();
+    if (!next.apiHosts.length || !next.imageHosts.length) { toast('先填好线路和图片域名', true); return; }
+    JMApi.updateSettings(next);
+    JMApi.clearCache();
+    btn.disabled = true;
+    btn.textContent = '测试中…';
+    steps.hidden = false;
+    steps.textContent = '正在建立会话…';
+    var lines = [];
+    JMApi.probe().then(function (r) {
+      lines.push('✅ 会话正常：' + (r.host || '自动') + '，接口版本 ' + r.ver);
+      steps.textContent = lines.join('\n');
+      return JMApi.loadAlbum('422466').then(function (a) {
+        lines.push('✅ 作品接口正常：' + a.title);
+        steps.textContent = lines.join('\n');
+        var chId = (a.series && a.series.length) ? a.series[0].id : a.id;
+        return JMApi.loadChapter(chId);
+      }).then(function (p) {
+        lines.push('✅ 章节接口正常：' + p.images.length + ' 页');
+        steps.textContent = lines.join('\n');
+        toast('连接正常');
+      });
+    }).catch(function (e) {
+      lines.push('❌ ' + (e.message || e));
+      steps.textContent = lines.join('\n');
+      toast('连接失败：' + (e.message || e), true);
+    }).then(function () {
+      btn.disabled = false;
+      btn.textContent = '测试连接';
+    });
+  }
+
+  /* ---------------- 事件绑定 ---------------- */
+  $('searchForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var input = JMApi.parseInput($('albumInput').value);
+    if (!input) { toast('请输入作品号（纯数字）或作品链接', true); return; }
+    $('albumInput').value = input.id;
+    if (input.kind === 'chapter') {
+      S.pendingAlbumId = '';
+      openReader(input.id, 0);
+    } else {
+      openAlbum(input.id);
+    }
+  });
+
+  $('backBtn').addEventListener('click', function () { show('home'); refreshStatus(); });
+
+  $('startBtn').addEventListener('click', function () {
+    var a = S.album;
+    if (!a) return;
+    var first = (a.series && a.series.length) ? a.series[0].id : a.id;
+    openReader(first, 0);
+  });
+
+  $('rBack').addEventListener('click', function () {
+    persistProgress();
+    $('reader').hidden = true;
+    if (S.io) { S.io.disconnect(); S.io = null; }
+    releaseBitmaps();
+    show('detail');
+  });
+
+  $('pages').addEventListener('scroll', function () {
+    requestAnimationFrame(updatePageIndicator);
+  }, { passive: true });
+
+  $('chSel').addEventListener('change', function (ev) { openReader(ev.target.value, 0); });
+  $('chPrev').addEventListener('click', function () {
+    var list = chapterList();
+    if (!list) return;
+    var i = list.findIndex(function (c) { return c.id === String(S.chapterId); });
+    if (i > 0) openReader(list[i - 1].id, 0);
+  });
+  $('chNext').addEventListener('click', function () {
+    var list = chapterList();
+    if (!list) return;
+    var i = list.findIndex(function (c) { return c.id === String(S.chapterId); });
+    if (i >= 0 && i < list.length - 1) openReader(list[i + 1].id, 0);
+  });
+  $('jumpBox').addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Enter') return;
+    var n = Number($('jumpBox').value);
+    var pages = $('pages');
+    if (n >= 1 && pages.children[n - 1]) pages.children[n - 1].scrollIntoView();
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if ($('reader').hidden) return;
+    if (ev.target && /input|textarea|select/i.test(ev.target.tagName)) return;
+    var pages = $('pages');
+    if (ev.key === 'ArrowRight' || ev.key === 'PageDown') pages.scrollBy({ top: pages.clientHeight * 0.9 });
+    if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') pages.scrollBy({ top: -pages.clientHeight * 0.9 });
+  });
+
+  $('settingsBtn').addEventListener('click', openSettings);
+  $('saveBtn').addEventListener('click', saveSettings);
+  $('cancelBtn').addEventListener('click', closeSettings);
+  $('testBtn').addEventListener('click', testConnection);
+  $('clearCacheBtn').addEventListener('click', clearCache);
+  $('resetBtn').addEventListener('click', resetSettings);
+
+  /* ---------------- 年龄确认 ---------------- */
+  if (!lsGet(AGE_KEY)) $('ageGate').hidden = false;
+  $('ageYes').addEventListener('click', function () {
+    lsSet(AGE_KEY, '1');
+    $('ageGate').hidden = true;
+  });
+  $('ageNo').addEventListener('click', function () {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#93a1b0;">已退出。可以关闭本页面。</div>';
+  });
+
+  /* ---------------- 启动 ---------------- */
+  renderHistory();
+  refreshStatus();
+})();
+
+</script>
+</body>
+</html>
